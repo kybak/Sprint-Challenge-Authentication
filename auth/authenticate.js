@@ -1,29 +1,43 @@
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
 
-const jwtKey =
-  process.env.JWT_SECRET ||
-  'add a .env file to root of project with the JWT_SECRET variable';
+const publicKey = fs.readFileSync(__dirname + '/rsa/public.key', 'utf8');
 
 // quickly see what this file exports
 module.exports = {
-  authenticate,
+    authenticate
 };
 
 // implementation details
 function authenticate(req, res, next) {
-  const token = req.get('Authorization');
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 
-  if (token) {
-    jwt.verify(token, jwtKey, (err, decoded) => {
-      if (err) return res.status(401).json(err);
+    const verifyOptions = {
+        expiresIn: "12h",
+        algorithm: ["RS256"]
+    };
 
-      req.decoded = decoded;
+    if (req.cookies.token) {
+        console.log(req.cookies.token);
+        jwt.verify(req.cookies.token, publicKey, verifyOptions, function (err, decoded) {
+            if (err) {
+                console.log('Failed to authenticate token.');
+                return res.status(403).json({ error: 'Failed to authenticate token.' });
+            } else if (decoded && decoded.ip !== ip) {
+                console.log('User is attempting to use token from a different computer.');
+                return res.status(403).json({ error: 'Failed to authenticate token.' });
+            } else {
+                console.log('Token decoded: ', decoded);
+                req.decoded = decoded;
+            }
+        });
+    } else {
+        console.log('No cookie found.');
+        return res.status(403).send({
+            error: 'No token provided.'
+        });
+    }
 
-      next();
-    });
-  } else {
-    return res.status(401).json({
-      error: 'No token provided, must be set on the Authorization Header',
-    });
-  }
+    next();
 }
+
