@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
-
 const publicKey = fs.readFileSync(__dirname + '/rsa/public.key', 'utf8');
 
 // quickly see what this file exports
@@ -16,9 +15,8 @@ function authenticate(req, res, next) {
         expiresIn: "12h",
         algorithm: ["RS256"]
     };
-
+console.log(req);
     if (req.cookies.token) {
-        console.log(req.cookies.token);
         jwt.verify(req.cookies.token, publicKey, verifyOptions, function (err, decoded) {
             if (err) {
                 console.log('Failed to authenticate token.');
